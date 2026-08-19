@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laberinto</title>
 
     <style>
@@ -53,6 +54,22 @@
             transform: translate(-50%, -50%);
         }
         
+        #controlesMovil {
+            display: none;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        #controlesMovil button {
+            width: 55px;
+            height: 55px;
+            margin: 3px;
+            font-size: 1.4em;
+            padding: 0;
+            touch-action: manipulation;
+            user-select: none;
+        }
+
         @keyframes aparecerVictoria {
             0% {
               transform: translate(-50%, -50%) scale(0);
@@ -65,7 +82,12 @@
             100% {
                 transform: translate(-50%, -50%) scale(1);
             }
-}
+        }
+        @media screen and (max-width: 700px) {
+            #controlesMovil {
+                display: block !important;
+            }
+        }
     </style>
 </head>
 
@@ -79,6 +101,16 @@
     </div>
 
     <div id="mensaje"></div>
+
+    <div id="controlesMovil">
+        <button id="btnArriba">▲</button>
+
+        <div>
+            <button id="btnIzquierda">◀</button>
+            <button id="btnAbajo">▼</button>
+            <button id="btnDerecha">▶</button>
+        </div>
+    </div>
 
     <div id="contenedorMaze">
         <canvas id="canvas" width="600" height="600"></canvas>

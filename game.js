@@ -165,3 +165,19 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.getElementById('btnNuevo').addEventListener('click', nuevoLaberinto);
+
+document.getElementById('btnArriba').addEventListener('click', () => {
+    moverJugador(-1, 0);
+});
+
+document.getElementById('btnAbajo').addEventListener('click', () => {
+    moverJugador(1, 0);
+});
+
+document.getElementById('btnIzquierda').addEventListener('click', () => {
+    moverJugador(0, -1);
+});
+
+document.getElementById('btnDerecha').addEventListener('click', () => {
+    moverJugador(0, 1);
+});
