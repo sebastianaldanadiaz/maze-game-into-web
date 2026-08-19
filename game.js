@@ -99,14 +99,34 @@ function dibujarMaze(){
     }
 
     // Entrada (E) y salida (S)
-    ctx.fillStyle = 'green';
-    ctx.font = `${cellSize * 0.5}px sans-serif`;
-    const er = f_entry_row(mazePtr), ec = f_entry_col(mazePtr);
-    ctx.fillText('E', ec * cellSize + cellSize*0.25, er * cellSize + cellSize*0.7);
+    const tamanoLetra = Math.max(cellSize * 0.5, 14);
 
+    ctx.font = `${tamanoLetra}px sans-serif`;
+    ctx.textBaseline = 'middle';
+
+    // Entrada
+    ctx.fillStyle = 'green';
+
+    const er = f_entry_row(mazePtr);
+    const ec = f_entry_col(mazePtr);
+
+    ctx.fillText(
+        'E',
+        ec * cellSize + cellSize / 2 - tamanoLetra / 3,
+        er * cellSize + cellSize / 2
+    );
+
+    // Salida
     ctx.fillStyle = 'red';
-    const xr = f_exit_row(mazePtr), xc = f_exit_col(mazePtr);
-    ctx.fillText('S', xc * cellSize + cellSize*0.25, xr * cellSize + cellSize*0.7);
+
+    const xr = f_exit_row(mazePtr);
+    const xc = f_exit_col(mazePtr);
+
+    ctx.fillText(
+        'S',
+        xc * cellSize + cellSize / 2 - tamanoLetra / 3,
+        xr * cellSize + cellSize / 2
+    );
 
     // Jugador
     ctx.fillStyle = 'blue';

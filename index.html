@@ -18,8 +18,16 @@
         canvas {
             background: #fff;
             margin-top: 20px;
-            border: 3px solid #444; 
-            border-radius: 8px; 
+            border: 3px solid #444;
+            border-radius: 8px;
+
+            /* El canvas nunca será más grande que el espacio disponible */
+            max-width: calc(100vw - 20px);
+            max-height: calc(100vh - 180px);
+
+            /* Mantenerlo cuadrado */
+            width: min(600px, calc(100vw - 20px), calc(100vh - 180px));
+            height: auto;
         }
 
         #mensaje {
@@ -43,6 +51,9 @@
         /* Contenedor que permite colocar el GIF encima del canvas */
         #contenedorMaze {
             position: relative;
+            width: 100%;
+            display: flex;
+            justify-content: center;
         }
 
         /* GIF de victoria */
@@ -52,6 +63,9 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
+            
+            max-width: 80%;
+            max-height: 80%;
         }
         
         #controlesMovil {
@@ -86,6 +100,25 @@
         @media screen and (max-width: 700px) {
             #controlesMovil {
                 display: block !important;
+            }
+        }
+        @media screen and (max-width: 700px) {
+            body {
+                margin: 8px;
+            }
+
+            h1 {
+                font-size: 1.6em;
+            }
+
+            #mensaje {
+                font-size: 1.1em;
+            }
+
+            #contenedorMaze {
+                width: 100%;
+                display: flex;
+                justify-content: center;
             }
         }
     </style>
