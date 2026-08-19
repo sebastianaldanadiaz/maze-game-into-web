@@ -1,0 +1,159 @@
+include maze_create.h
+
+// Procedure: resets all the visited cells to avoid confusion with the
+// visited cells marked during maze generation
+// input: the matrix of the maze
+// return: none, just modifies the visited variable of each cell
+procedure reset_visited(m as Maze*)
+    for row = 0 to m.rows do
+        for col = 0 to m.cols do
+            m.cells[row][col].visited = false
+            m.cells[row][col].on_solution = false
+        end for
+    end for
+end procedure
+
+// Function: finds the accessible neighbor cells of a given cell
+// a cell is accessible if there is no wall between them and it has
+// not been visited yet
+// input: the matrix of the maze, the row and column of the current cell
+// and the 
+// return: a count of accessible neighbor cells found
+function get_accessible_cells(m as Maze*, row as int, col as int, neighbors[4]
+    as List) returns int
+
+    count = 0
+    if not m.cells[row][col].wall_north and row - 1 >= 0 then
+        neighbors[count].rows = row - 1
+        neighbors[count].cells = col
+        count = count + 1
+    end if
+    if not m.cells[row][col].wall_south and row + 1 < m.rows then
+        neighbors[count].rows = row + 1
+        neighbors[count].cells = col
+        count = count + 1
+    end if
+    if not m.cells[row][col].wall_east and col + 1 < m.cols then
+        neighbors[count].rows = row
+        neighbors[count].cells = col + 1
+        count = count + 1
+    end if
+    if not m.cells[row][col].wall_west and col - 1 >= 0 then
+        neighbors[count].rows = row
+        neighbors[count].cells = col - 1
+        count = count + 1
+    end if
+    return count
+end function
+
+// Function: solves the maze using a recursive DFS algorithm
+// marks each cell that is part of the solution path with on_solution = true
+// input: the matrix of the maze, row and column of the current cell
+// return: true if the exit was found from this cell
+function maze_solve_dfs(m as Maze*, row as int, col as int)
+    returns boolean
+
+    m.cells[row][col].visited = true
+
+    if row == m.exit_row and col == m.exit_col then
+        m.cells[row][col].on_solution = true
+        return true
+    end if
+
+    neighbors as List[4]
+    count = get_accessible_cells(m, row, col, neighbors)
+
+    for i = 0 to count do
+        if maze_solve_dfs(m, neighbors[i].row, neighbors[i].col) then
+            m.cells[row][col].on_solution = true
+            return true
+        end if
+    end for
+
+    return false
+end function
+
+// Function: main resolution function, resets visited cells and calls
+// the recursive DFS solver
+// input: the matrix of the maze
+// return: true if the maze has a solution
+function maze_solve(m as Maze*) returns boolean
+    if m == NULL then
+        report_error("error: the Maze is null")
+        return false
+    end if
+    reset_visited(m)
+    max = m.rows * m.cols
+    queue_row = allocate array of max int
+    queue_col = allocate array of max int
+    parent_row = allocate array of max int
+    parent_col = allocate array of max int
+    if queue_row == NULL or queue_col == NULL or
+       parent_row == NULL or parent_col == NULL then
+        report_error("error: Memory allocation failed")
+        free queue_row
+        free queue_col
+        free parent_row
+        free parent_col
+        return false
+    end if
+    for i = 0 to max do
+        parent_row[i] = -1
+        parent_col[i] = -1
+    end for
+    front = 0
+    back = 0
+    queue_row[back] = m.entry_row
+    queue_col[back] = m.entry_col
+    back = back + 1
+    mark m.cells[m.entry_row][m.entry_col] as visited
+    found = false
+    while front < back do
+        row = queue_row[front]
+        col = queue_col[front]
+        front = front + 1
+        if row == m.exit_row and col == m.exit_col then
+            found = true
+            break
+        end if
+        neighbors as List[4]
+        count = get_accessible_cells(m, row, col, neighbors)
+        for i = 0 to count  do
+            nr = neighbors[i].rows
+            nc = neighbors[i].cells
+            if not m.cells[nr][nc].visited then
+                mark m.cells[nr][nc] as visited
+                queue_row[back] = nr
+                queue_col[back] = nc
+                back = back + 1
+                idx = nr * m.cols + nc
+                parent_row[idx] = row
+                parent_col[idx] = col
+            end if
+        end for
+    end while
+    if not found then
+        report_error("error: Solving failed: No path from entrance to exit")
+        free queue_row
+        free queue_col
+        free parent_row
+        free parent_col
+        return false
+    end if
+    row = m.exit_row
+    col = m.exit_col
+    while not (row == m.entry_row and col == m.entry_col) do
+        m.cells[row][col].on_solution = true
+        idx = row * m.cols + col
+        pr = parent_row[idx]
+        pc = parent_col[idx]
+        row = pr
+        col = pc
+    end while
+    m.cells[m.entry_row][m.entry_col].on_solution = true
+    free queue_row
+    free queue_col
+    free parent_row
+    free parent_col
+    return true
+end function

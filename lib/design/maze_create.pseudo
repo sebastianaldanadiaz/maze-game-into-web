@@ -1,0 +1,176 @@
+
+record Cell of
+    wall_north  as boolean  // walls of the cell
+    wall_south  as boolean
+    wall_east   as boolean
+    wall_west   as boolean
+    visited     as boolean  // if a cell has been visited or not
+    on_solution as boolean  // if the cell is part of the path of the maze's solution
+end record
+
+record Maze of
+    rows        as int
+    cols        as int
+    cells       as Cell**
+    entry_row   as int
+    entry_col   as int
+    exit_row    as int
+    exit_col    as int
+end record
+
+record struct{
+    row as int; 
+    col as int; 
+} List; 
+
+// Function: check if the size of the matrix is valid
+// input: a number to check
+// return: true if the number is valid
+// a number is valid only if n is more than 3 or less than 50000
+function is_valid(n as int) returns boolean
+    return n >= 3 and n <= 50000
+end function
+
+// Procedure: clean the memory of the matrix
+// input: the matrix of the maze
+// return: none, just clean the memory
+procedure maze_clean(m as Maze*)
+    if m == NULL then return end if
+    for row = 0 to m.rows do
+        free m.cells[row]
+    end for
+    free m.cells
+    free m
+end procedure
+
+// Function: create a blank maze (with all walls set)
+// input: rows and columns of the maze
+// return: a maze, or null in case the memory fails or the sizes are not valid
+function maze_create(rows as int, cols as int) returns Maze*
+    if not is_valid(rows) or not is_valid(cols) then
+        report_error("Invalid dimensions")
+        return NULL
+    end if
+
+    m = allocate Maze
+    if m == NULL then
+        report_error("Memory allocation failed")
+        return NULL
+    end if
+
+    m.rows = rows
+    m.cols = cols
+
+    m.cells = allocate array of rows pointers
+    if m.cells == NULL then
+        free m
+        return NULL
+    end if
+
+    for row = 0 to rows  do
+        m.cells[row] = allocate array of cols Cell
+        if m.cells[row] == NULL then
+            maze_clean(m)
+            return NULL
+        end if
+        for col = 0 to cols  do
+            m.cells[row][col].wall_north  = true
+            m.cells[row][col].wall_south  = true
+            m.cells[row][col].wall_east   = true
+            m.cells[row][col].wall_west   = true
+            m.cells[row][col].visited     = false
+            m.cells[row][col].on_solution = false
+        end for
+    end for
+
+    m.entry_row = 0
+    m.entry_col = 0
+    m.exit_row  = rows - 1
+    m.exit_col  = cols - 1
+
+    maze_generate(m)
+
+    return m
+end function
+
+// Function: creates a list of cells next to a certain cell that have
+// not been visited yet
+// input: the matrix of the maze, row and column of the current cell
+//and a list of nighbors cells
+// return: a count of the unvisited neighbors
+function get_unvisited_cells(m as Maze*, row as int, col as int, neighbors as
+    List) returns list of (int, int)
+
+     count = 0
+    if row - 1 >= 0 and not m.cells[row-1][col].visited then
+        neighbors[count].rows = row - 1
+        neighbors[count].cells = col
+        count = count + 1
+    end if
+    if row + 1 < m.rows and not m.cells[row+1][col].visited then
+        neighbors[count].rows = row + 1
+        neighbors[count].cells = col
+        count = count + 1
+    end if
+    if col + 1 < m.cols and not m.cells[row][col+1].visited then
+        neighbors[count].rows = row
+        neighbors[count].cells = col + 1
+        count = count + 1
+    end if
+    if col - 1 >= 0 and not m.cells[row][col-1].visited then
+        neighbors[count].rows = row
+        neighbors[count].cells = col - 1
+        count = count + 1
+    end if
+    return count
+end function
+
+// Procedure: removes the wall between two adjacent cells to create a path
+// input: the matrix of the maze, coordinates of both cells
+// return: none, just removes the wall
+procedure remove_wall_between(m as Maze*, r1, c1, r2, c2 as int)
+    if r2 == r1 - 1 then
+        m.cells[r1][c1].wall_north = false
+        m.cells[r2][c2].wall_south = false
+    else if r2 == r1 + 1 then
+        m.cells[r1][c1].wall_south = false
+        m.cells[r2][c2].wall_north = false
+    else if c2 == c1 + 1 then
+        m.cells[r1][c1].wall_east = false
+        m.cells[r2][c2].wall_west = false
+    else if c2 == c1 - 1 then
+        m.cells[r1][c1].wall_west = false
+        m.cells[r2][c2].wall_east = false
+    end if
+end procedure
+
+// Procedure: generates a maze using an iterative DFS algorithm
+// it guarantees that there is a path from entry to exit
+// input: the matrix of the maze
+// return: none, just generates the maze
+procedure maze_generate(m as Maze*)
+    stack = empty stack of (row, col) pairs
+    start_row = m.entry_row
+    start_col = m.entry_col
+
+    mark m.cells[start_row][start_col] as visited
+    push (start_row, start_col) onto stack
+
+    while stack is not empty do
+        (row, col) = top of stack
+        neighbors as List[4]
+        count = get_unvisited_cells(m, row, col, neighbors)
+
+        if count > 0 then
+            random index = random number between 0 and count - 1
+            next_row = neighbors[random index].row
+            next_col = neighbors[random index].col
+            remove_wall_between(m, row, col, next_row, next_col)
+            mark m.cells[next_row][next_col] as visited
+            push (next_row, next_col) onto stack
+        else
+            pop from stack
+        end if
+    end while
+end procedure
+

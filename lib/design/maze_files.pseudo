@@ -1,0 +1,241 @@
+include maze_create.h
+include maze_solve.h
+
+// ---------- txt files --------------------
+
+// Procedure: writes the full maze into a txt file, including dimensions,
+// entry, exit and all cell data using # for walls and . for paths
+// input: the matrix of the maze, the txt file
+// return: none
+ if f == NULL then
+        report_error("error: File is null")
+        return
+    end if
+    visual_rows = m.rows * 2 + 1
+    visual_cols = m.cols * 2 + 1
+    grid = allocate array of visual_rows string pointers
+    if grid == NULL then return end if
+    for r = 0 to visual_rows do
+        grid[r] = allocate string of visual_cols + 1 chars
+        if grid[r] == NULL then
+            free previous rows
+            free grid
+            return
+        end if
+        fill grid[r] with '#'
+        grid[r][visual_cols] = '\0'
+    end for
+    for row = 0 to m.rows  do
+        for col = 0 to m.cols do
+            vr = row * 2 + 1
+            vc = col * 2 + 1
+            grid[vr][vc] = ' '
+            if not m.cells[row][col].wall_north then
+                grid[vr-1][vc] = ' '
+            end if
+            if not m.cells[row][col].wall_south then
+                grid[vr+1][vc] = ' '
+            end if
+            if not m.cells[row][col].wall_east then
+                grid[vr][vc+1] = ' '
+            end if
+            if not m.cells[row][col].wall_west then
+                grid[vr][vc-1] = ' '
+            end if
+        end for
+    end for
+    for row = 0 to m.rows do
+        for col = 0 to m.cols do
+            vr = row * 2 + 1
+            vc = col * 2 + 1
+            if m.cells[row][col].on_solution then
+                grid[vr][vc] = '.'
+            end if
+        end for
+    end for
+    // entry
+    if m.entry_row == 0 then
+        grid[0][m.entry_col * 2 + 1] = 'S'
+    else if m.entry_row == m.rows - 1 then
+        grid[visual_rows-1][m.entry_col * 2 + 1] = 'S'
+    else if m.entry_col == 0 then
+        grid[m.entry_row * 2 + 1][0] = 'S'
+    else if m.entry_col == m.cols - 1 then
+        grid[m.entry_row * 2 + 1][visual_cols-1] = 'S'
+    end if
+    // exit
+    if m.exit_row == 0 then
+        grid[0][m.exit_col * 2 + 1] = 'F'
+    else if m.exit_row == m.rows - 1 then
+        grid[visual_rows-1][m.exit_col * 2 + 1] = 'F'
+    else if m.exit_col == 0 then
+        grid[m.exit_row * 2 + 1][0] = 'F'
+    else if m.exit_col == m.cols - 1 then
+        grid[m.exit_row * 2 + 1][visual_cols-1] = 'F'
+    end if
+    for r = 0 to visual_rows - 1 do
+        fprintf(f, "%s\n", grid[r])
+        free grid[r]
+    end for
+    free grid
+end procedure
+
+// Function: reads a maze from a txt file including dimensions,
+// entry, exit and all cell data
+// input: the txt file
+// return: the maze read from the file, or NULL if it fails
+function maze_read_txt(f as FILE*) returns Maze*
+   if f == NULL then
+        report_error("error: File is null")
+        return NULL
+    end if
+    capacity = 128
+    lines = allocate array of capacity string pointers
+    if lines == NULL then return NULL end if
+    total_lines = 0
+    while fgets(buffer, f) != NULL do
+        if total_lines >= capacity then
+            capacity = capacity * 2
+            reallocate lines to capacity
+            if realloc fails then
+                free all lines
+                free lines
+                return NULL
+            end if
+        end if
+        remove newline from buffer
+        lines[total_lines] = copy of buffer
+        if copy fails then
+            free all lines
+            free lines
+            return NULL
+        end if
+        total_lines = total_lines + 1
+    end while
+    rows = (total_lines - 1) / 2
+    cols = (length of lines[0] - 1) / 2
+    if not is_valid(rows) or not is_valid(cols) then
+        report_error("error: Invalid dimensions")
+        free all lines
+        free lines
+        return NULL
+    end if
+    m = allocate Maze with rows and cols
+    if m == NULL then
+        free all lines
+        free lines
+        return NULL
+    end if
+    for r = 0 to visual_rows do
+        for c = 0 to visual_cols do
+            ch = lines[r][c]
+            if ch == 'S' or ch == 'F' then
+                determine cell position from r, c
+                set entry or exit accordingly
+                open corresponding wall
+            end if
+        end for
+    end for
+    for row = 0 to rows do
+        vrow = row * 2 + 1
+        for col = 0 to cols do
+            vcol = col * 2 + 1
+            m.cells[row][col].on_solution = lines[vrow][vcol] == '.'
+            m.cells[row][col].wall_north = lines[vrow-1][vcol] == '#'
+            m.cells[row][col].wall_south = lines[vrow+1][vcol] == '#'
+            m.cells[row][col].wall_east  = lines[vrow][vcol+1] == '#'
+            m.cells[row][col].wall_west  = lines[vrow][vcol-1] == '#'
+        end for
+    end for
+    free all lines
+    free lines
+    return m
+end function
+
+
+// -------- binary files ---------------------
+
+// Procedure: writes the full maze into a binary file
+// uses 1 byte per cell with 6 bits of information
+// bit 0: wall_north, bit 1: wall_south, bit 2: wall_east
+// bit 3: wall_west, bit 4: on_solution, bit 5: visited
+// input: the maze, the binary file
+// return: none
+procedure maze_write_binary(m as Maze*, f as FILE*)
+    if f == NULL then
+        report_error("File is NULL")
+        return
+    end if
+
+    // Write header as uint8_t to save space
+    uint8_t rows    = m.rows
+    uint8_t cols    = m.cols
+    uint8_t entry_r = m.entry_row
+    uint8_t entry_c = m.entry_col
+    uint8_t exit_r  = m.exit_row
+    uint8_t exit_c  = m.exit_col
+
+    fwrite(&rows,    sizeof(uint8_t), 1, f)
+    fwrite(&cols,    sizeof(uint8_t), 1, f)
+    fwrite(&entry_r, sizeof(uint8_t), 1, f)
+    fwrite(&entry_c, sizeof(uint8_t), 1, f)
+    fwrite(&exit_r,  sizeof(uint8_t), 1, f)
+    fwrite(&exit_c,  sizeof(uint8_t), 1, f)
+
+    for row = 0 to m.rows do
+        for col = 0 to m.cols do
+            byte = 0
+            byte |= m.cells[row][col].wall_north  << 0
+            byte |= m.cells[row][col].wall_south  << 1
+            byte |= m.cells[row][col].wall_east   << 2
+            byte |= m.cells[row][col].wall_west   << 3
+            byte |= m.cells[row][col].on_solution << 4
+            byte |= m.cells[row][col].visited     << 5
+            fwrite(&byte, sizeof(uint8_t), 1, f)
+        end for
+    end for
+end procedure
+
+// Function: reads a maze from a binary file
+// input: the binary file
+// return: the maze read from the file, or NULL if it fails
+function maze_read_binary(f as FILE*) returns Maze*
+    if f == NULL then
+        report_error("File is NULL")
+        return NULL
+    end if
+
+    // Read header
+    uint8_t rows, cols, entry_row, entry_col, exit_row, exit_col
+    fread(&rows,      sizeof(uint8_t), 1, f)
+    fread(&cols,      sizeof(uint8_t), 1, f)
+    fread(&entry_row, sizeof(uint8_t), 1, f)
+    fread(&entry_col, sizeof(uint8_t), 1, f)
+    fread(&exit_row,  sizeof(uint8_t), 1, f)
+    fread(&exit_col,  sizeof(uint8_t), 1, f)
+
+    m = maze_create(rows, cols)
+    if m == NULL then
+        return NULL
+    end if
+
+    m.entry_row = entry_row
+    m.entry_col = entry_col
+    m.exit_row  = exit_row
+    m.exit_col  = exit_col
+
+    
+    for row = 0 to m.rows do
+        for col = 0 to m.cols do
+            fread(&byte, sizeof(uint8_t), 1, f)
+            m.cells[row][col].wall_north  = (byte >> 0) & 1
+            m.cells[row][col].wall_south  = (byte >> 1) & 1
+            m.cells[row][col].wall_east   = (byte >> 2) & 1
+            m.cells[row][col].wall_west   = (byte >> 3) & 1
+            m.cells[row][col].on_solution = (byte >> 4) & 1
+            m.cells[row][col].visited     = (byte >> 5) & 1
+        end for
+    end for
+
+    return m
+end function

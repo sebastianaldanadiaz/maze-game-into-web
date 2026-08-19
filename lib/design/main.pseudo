@@ -1,0 +1,206 @@
+include maze_create.h
+include maze_solve.h
+include maze_files.h
+
+// Record: stores all the arguments provided by the user
+// in the command line
+record Arguments of
+    rows        as int     // number of rows for the maze
+    cols        as int     // number of columns for the maze
+    input_file  as string  // path to the input file, NULL if not provided
+    output_file as string  // path to the output file, NULL if not provided
+    format      as string  // file format: "txt" or "bin"
+    solve       as boolean // true if the user wants to solve the maze
+    generate    as boolean // true if the user wants to generate a maze
+end record
+
+// Function: reads and validates the command line arguments
+// sets default values for arguments not provided by the user
+// input: argument count, argument values, and a valid flag
+// return: an Arguments record, valid flag is set to false if something is wrong
+function parse_arguments(argc as int, argv as string[], valid as bool*) 
+    returns Arguments
+
+    // Default values
+    arguments.rows        = 10
+    arguments.cols        = 10
+    arguments.input_file  = NULL
+    arguments.output_file = NULL
+    arguments.format      = "txt"
+    arguments.solve       = false
+    arguments.generate    = false
+
+    for i = 1 to argc do
+
+        // -g: generate maze, optionally with dimensions ROWSxCOLS
+        if argv[i] == "-g" then
+            arguments.generate = true
+            if i + 1 < argc and argv[i+1] does not start with '-' then
+                if sscanf(argv[i+1], ROWSxCOLS, &arguments.rows, 
+                    &arguments.cols) != 2 then
+                    report_error("Invalid dimensions, use format ROWSxCOLS ex: 5x10")
+                    valid = false
+                    return arguments
+                end if
+                if not is_valid(arguments.rows) or not is_valid(arguments.cols) then
+                    report_error("Invalid dimensions, use format ROWSxCOLS ex: 5x10")
+                    valid = false
+                    return arguments
+                end if
+                i = i + 1
+            else
+                // No dimensions given, use default 10x10
+                arguments.rows = 10
+                arguments.cols = 10
+            end if
+
+        // -s: solve the maze
+        else if argv[i] == "-s" then
+            arguments.solve = true
+
+        // -i: read maze from input file
+        else if argv[i] == "-i" then
+            if i + 1 < argc then
+                arguments.input_file = argv[i+1]
+                i = i + 1
+            else
+                report_error("Flag -i requires a filename, ex: -i laberinto.txt")
+                valid = false
+                return arguments
+            end if
+
+        // -o: write result to output file
+        else if argv[i] == "-o" then
+            if i + 1 < argc then
+                arguments.output_file = argv[i+1]
+                i = i + 1
+            else
+                report_error("Flag -o requires a filename, ex: -o resultado.txt")
+                valid = false
+                return arguments
+            end if
+
+        // -f: set file format to txt or bin
+        else if argv[i] == "-f" then
+            if i + 1 < argc then
+                if argv[i+1] != "txt" and argv[i+1] != "bin" then
+                    report_error("Format must be txt or bin, ex: -f txt")
+                    valid = false
+                    return arguments
+                end if
+                arguments.format = argv[i+1]
+                i = i + 1
+            else
+                report_error("Flag -f requires a format, ex: -f txt or -f bin")
+                valid = false
+                return arguments
+            end if
+
+        // Unknown flag
+        else
+            report_error("Unknown argument: " + argv[i])
+            valid = false
+            return arguments
+        end if
+
+    end for
+
+    // Cannot use -g and -i together
+    if arguments.generate and arguments.input_file != NULL then
+        report_error("Cannot use -g and -i together")
+        valid = false
+        return arguments
+    end if
+
+    // Binary format only works with named files
+    if arguments.format == "bin" and arguments.input_file == NULL
+       and not arguments.generate then
+        report_error("Binary format only works with named files, use -i or -o")
+        valid = false
+        return arguments
+    end if
+
+    return arguments
+end function
+
+// Procedure: entry and exit point of the program, it
+// reads arguments, generates or reads a maze, solves it if requested
+// and writes the result to the output
+// input: argument count and argument values from command line
+// return: EXIT_SUCCESS or EXIT_FAILURE
+procedure main(argc as int, argv as char[])
+
+     if argc == 1 then
+        m = maze_read_txt(stdin)
+        if m == NULL then
+            return EXIT_FAILURE
+        end if
+        maze_solve(m)
+        maze_write_txt(m, stdout)
+        maze_clean(m)
+        return EXIT_SUCCESS
+    end if
+    valid = true
+    arguments = parse_arguments(argc, argv, &valid)
+    if not valid then
+        report_error("Usage: maze [-g ROWSxCOLS] [-s] [-i file] [-o file] [-f txt|bin]")
+        return EXIT_FAILURE
+    end if
+    m = NULL
+    f = NULL
+    if arguments.generate then
+        m = maze_create(arguments.rows, arguments.cols)
+        if m == NULL then
+            report_error("Could not generate maze")
+            return EXIT_FAILURE
+        end if
+    else if arguments.input_file != NULL then
+        if arguments.format == "bin" then
+            f = fopen(arguments.input_file, "rb")
+            if f == NULL then
+                report_error("Cannot open binary file")
+                return EXIT_FAILURE
+            end if
+            m = maze_read_binary(f)
+        else
+            f = fopen(arguments.input_file, "r")
+            if f == NULL then
+                report_error("Cannot open text file")
+                return EXIT_FAILURE
+            end if
+            m = maze_read_txt(f)
+        end if
+        fclose(f)
+    else
+        m = maze_read_txt(stdin)
+    end if
+    if m == NULL then
+        report_error("Could not load maze")
+        return EXIT_FAILURE
+    end if
+    if not arguments.solve then
+        if arguments.output_file != NULL then
+            open output file
+            write maze to file
+            close file
+        else
+            maze_write_txt(m, stdout)
+        end if
+    end if
+    if arguments.solve then
+        result = maze_solve(m)
+        if not result then
+            maze_clean(m)
+            return EXIT_FAILURE
+        end if
+        if arguments.output_file != NULL then
+            open output file
+            write maze to file
+            close file
+        else
+            maze_write_txt(m, stdout)
+        end if
+    end if
+    maze_clean(m)
+    return EXIT_SUCCESS
+end procedure
