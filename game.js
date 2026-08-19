@@ -129,7 +129,7 @@ function dibujarMaze(){
     );
 
     // Jugador
-    ctx.fillStyle = 'blue';
+    ctx.fillStyle = 'green';
     ctx.beginPath();
     ctx.arc(
         jugadorCol * cellSize + cellSize/2,
